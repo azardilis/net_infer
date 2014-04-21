@@ -17,12 +17,12 @@ CPD4 <- array(c(0.1,0.2,
 
 dag0$CPDs <- list(CPD1,CPD2,CPD3,CPD4)
 
-data <- generate.data.dag(dag0, 500)
+data <- generate.data.dag(dag0, 300)
 CPD.prior.value <- 0.03
 dag0$changed <- 1:(dag0$n)
 dag0 <- loglik.dag(dag0, CPD.prior.value, data)
 dag0$loglik
 
 
-dag <- search.dag(data, 30, 50, CPD.prior.value)
+dag <- search.dag(data, 30, 30, CPD.prior.value)
 dag$loglik; dag0$loglik
