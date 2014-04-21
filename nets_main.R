@@ -25,4 +25,4 @@ dag0$loglik
 
 
 dag <- search.dag(data, 30, 50, CPD.prior.value)
-
+dag$loglik; dag0$loglik
