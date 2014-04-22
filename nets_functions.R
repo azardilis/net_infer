@@ -193,7 +193,7 @@ revert.arc <- function(dag) {
     } else {
         dag$parents <- parents
         dag$sorted <- sorted
-        dag$changed <- node
+        dag$changed <- c(node, rpar)
     }
 
     dag
@@ -261,6 +261,187 @@ search.dag <- function(data,n.starts=50,n.iterations=10,
 }
 
 
+add.arc.mcmc <- function(dag) {
+  n <- length(dag$parents)
+  sorted <- NULL
+  round <- 0
+  node <- sample(n,1)
+  parents <- dag$parents
+  opar <- parents[[node]]
+  if (length(opar) < n - 1) {
+    new.par <- resample((1:n)[-c(opar,node)],1)
+    parents[[node]] <- c(opar,new.par)
+    sorted <- topsort.parents(parents)
+  }
+  if (is.null(sorted)) {
+    dag$changed <- NULL
+    dag$ratio <- 1
+  } else {
+    dag$parents <- parents
+    dag$sorted <- sorted
+    dag$changed <- node
+    dag$ratio <- (n-length(opar)-1)/(length(opar) + 1)
+  }
+  dag
+}
+
+remove.arc.mcmc <- function(dag) {
+    sorted <- NULL
+    parents <- dag$parents
+    n <- length(dag$parents)
+    node <- sample(dag$n, 1)
+    opar <- parents[[node]]
+    k <- length(opar)
+    if (length(opar) > 0) {
+        rpar <- sample(opar, size=1)
+        opar <- opar[-which(opar==rpar)]
+        parents[[node]] <- opar
+        sorted <- topsort.parents(parents)
+    }
+
+    if (is.null(sorted)) {
+        dag$changed <- NULL
+        dag$ratio <- 1
+    } else {
+        dag$parents <- parents
+        dag$sorted <- sorted
+        dag$changed <- node
+        dag$ratio <- k / (n-k)
+    }
+    dag
+}
+
+revert.arc.mcmc <- function(dag) {
+    sorted <- NULL
+    n <- length(dag$parents)
+    parents <- dag$parents
+
+    node <- sample(dag$n, 1)
+    opar <- parents[[node]]
+    k <- length(opar)
+    if (length(opar) > 0 ) {
+        rpar <- sample(opar, size=1)
+        opar <- opar[-which(opar==rpar)]
+        apar <- parents[[rpar]]
+        apar <- c(apar, node)
+        x <- length(apar)
+        parents[[node]] <- opar
+        parents[[rpar]] <- apar
+        sorted <- topsort.parents(parents)
+    }
+
+    if (is.null(sorted)) {
+        dag$changed <- NULL
+        dag$ratio <- 1
+    } else {
+        dag$parents <- parents
+        dag$sorted <- sorted
+        dag$changed <- c(node, rpar)
+        dag$ratio <- k / x
+
+    }
+    dag
+}
+
+elog <- function(x) {
+    if (x == 1) {
+
+    }
+
+}
+
+
+all.mcmc.operations <- c("add.arc.mcmc", "revert.arc.mcmc", "remove.arc.mcmc")
+
+mcmc.dag <- function(data,n.iterations=2000,
+                       prior.value = 0.01,arc.priors=NULL,
+                       operations=all.mcmc.operations) {
+  ## n.iterations: number of MCMC steps
+  ## returns a list of sample dags from the MH simulation, as well
+  ## as a vector of acceptance indicators
+  dags <- list()
+  accepts <- NULL
+  old.dag <- random.dag(ncol(data),all.operations)
+  old.dag <- loglik.dag(old.dag,prior.value,data)
+  for (rounds in 1:n.iterations) {
+      accept <- 0
+      dags <- c(dags,list(old.dag))
+      op <- sample(length(operations),1)
+      dag <- do.call(operations[op],list(old.dag))
+      if (!is.null(dag$changed)) {
+          ## get the loglikelihood of the dag
+          dag <- loglik.dag(dag,prior.value, data)
+          ## calculate the acceptanced ratio p
+          if (dag$loglik > old.dag$loglik) {
+              old.dag <- dag
+          } else {
+              u <- runif(1)
+              if (u < exp(dag$loglik-old.dag$loglik)) {
+                  old.dag <- dag
+              }
+          }
+      ## and set old.dag to the dag if it is smaller than p
+      }
+      accepts <- c(accepts,accept)
+  }
+  list(dags=dags,accepts=accepts)
+}
+
+mcmc.dag1 <- function(data,n.iterations=2000,
+                       prior.value = 0.01,arc.priors=NULL,
+                       operations=all.mcmc.operations) {
+  ## n.iterations: number of MCMC steps
+  ## returns a list of sample dags from the MH simulation, as well
+  ## as a vector of acceptance indicators
+  dags <- list()
+  accepts <- NULL
+  old.dag <- random.dag(ncol(data),all.operations)
+  old.dag <- loglik.dag(old.dag,prior.value,data)
+  for (rounds in 1:n.iterations) {
+      accept <- 0
+      dags <- c(dags,list(old.dag))
+      op <- sample(length(operations),1)
+      dag <- do.call(operations[op],list(old.dag))
+      if (!is.null(dag$changed)) {
+          ## get the loglikelihood of the dag
+          dag <- loglik.dag(dag,prior.value, data)
+          accept <- min(1, exp(dag$loglik-old.dag$loglik+log(dag$ratio)))
+          u <- runif(1)
+          if (u < accept) {
+              old.dag <- dag
+          }
+      }
+      accepts <- c(accepts,accept)
+  }
+  list(dags=dags,accepts=accepts)
+}
+
+make.arc.priors <- function(n,arc.lst,prob.lst) {
+  arcs <-  no.arcs <- matrix(1/3,nrow=n,ncol=n)
+  diag(arcs) <- diag(no.arcs) <- 1
+  for (i in 1:length(arc.lst)) {
+    arc <- arc.lst[[i]]
+    probs <- prob.lst[[i]]
+    arcs[arc[1],arc[2]] <- probs[1]
+    arcs[arc[2],arc[1]] <- probs[2]
+    no.arcs[arc[1],arc[2]] <- probs[3]
+    no.arcs[arc[2],arc[1]] <- probs[3]
+  }
+  list(arcs=log(arcs),no.arcs=log(no.arcs),no.arcs.total=sum(log(no.arcs)))
+}
+
+prior.prob <- function(dag, arc.priors) {
+    p <- arc.priors$no.arcs.total
+    for (node in 1:dag$n) {
+        parents <- dag$parents[[node]]
+        p <- p + sum(vapply(parents, function(p) { arc.priors$arcs[p, node] },
+                            FUN.VALUE = c(1)))
+        p <- p - sum(vapply(parents, function(p) { arc.priors$no.arcs[p, node] },
+                            FUN.VALUE = c(1)))
+    }
+
+    return(p)
+}
 
 
 
