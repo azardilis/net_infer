@@ -26,3 +26,26 @@ dag0$loglik
 
 dag <- search.dag(data, 30, 30, CPD.prior.value)
 dag$loglik; dag0$loglik
+
+
+
+
+
+dat <- generate.data.dag(dag0, 200)
+CPD.prior.value <- 0.03
+dag0$changed <- 1:(dag0$n)
+dag0 <- loglik.dag(dag0, CPD.prior.value, dat)
+
+n.iter <- 2000
+mcmc <- mcmc.dag1(dat, n.iter, CPD.prior.value)
+
+mean(mcmc$accepts)
+logliks <- sapply(mcmc$dags,function(dag) dag$loglik)
+plot(logliks,ty="l")
+abline(h=dag0$loglik,col="red")
+
+arc.priors <- make.arc.priors(dag0$n,
+                              list(c(3,4)),
+                              list(c(0.99, 0.005, 0.005))
+                              )
+prior.prob(dag0, arc.priors)
