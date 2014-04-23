@@ -154,7 +154,6 @@ remove.arc <- function(dag) {
             break
         }
     }
-
     if (round == max.arc.round) {
         dag$changed <- NULL
     } else {
@@ -162,7 +161,6 @@ remove.arc <- function(dag) {
         dag$sorted <- sorted
         dag$changed <- node
     }
-
     dag
 }
 
@@ -355,40 +353,6 @@ mcmc.dag <- function(data,n.iterations=2000,
   dags <- list()
   accepts <- NULL
   old.dag <- random.dag(ncol(data),all.operations)
-  old.dag <- loglik.dag(old.dag,prior.value,data)
-  for (rounds in 1:n.iterations) {
-      accept <- 0
-      dags <- c(dags,list(old.dag))
-      op <- sample(length(operations),1)
-      dag <- do.call(operations[op],list(old.dag))
-      if (!is.null(dag$changed)) {
-          ## get the loglikelihood of the dag
-          dag <- loglik.dag(dag,prior.value, data)
-          ## calculate the acceptanced ratio p
-          if (dag$loglik > old.dag$loglik) {
-              old.dag <- dag
-          } else {
-              u <- runif(1)
-              if (u < exp(dag$loglik-old.dag$loglik)) {
-                  old.dag <- dag
-              }
-          }
-      ## and set old.dag to the dag if it is smaller than p
-      }
-      accepts <- c(accepts,accept)
-  }
-  list(dags=dags,accepts=accepts)
-}
-
-mcmc.dag1 <- function(data,n.iterations=2000,
-                       prior.value = 0.01,arc.priors=NULL,
-                       operations=all.mcmc.operations) {
-  ## n.iterations: number of MCMC steps
-  ## returns a list of sample dags from the MH simulation, as well
-  ## as a vector of acceptance indicators
-  dags <- list()
-  accepts <- NULL
-  old.dag <- random.dag(ncol(data),all.operations)
   old.dag <- loglik.dag(old.dag,prior.value,data, arc.priors)
   for (rounds in 1:n.iterations) {
       accept <- 0
@@ -407,6 +371,19 @@ mcmc.dag1 <- function(data,n.iterations=2000,
       accepts <- c(accepts,accept)
   }
   list(dags=dags,accepts=accepts)
+}
+
+get.arc.prob <- function(mcmc,inds, i, j) {
+    p <- sapply(mcmc$dags[inds], function(dag) {i %in% dag$parents[[j]]})
+
+    return(mean(p))
+}
+
+arc.probs <- function(mcmc, inds, n) {
+    arcs <- expand.grid(1:n, 1:n)
+    probs <- apply(arcs, 1, function(arc) { get.arc.prob(mcmc, inds, arc[1], arc[2]) })
+
+    return(matrix(probs, nrow=n))
 }
 
 make.arc.priors <- function(n,arc.lst,prob.lst) {
