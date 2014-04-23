@@ -61,7 +61,7 @@ get.CPD.probs <- function(CPD,index.vector) {
 }
 
 
-loglik.dag <- function(dag,CPD.prior.value,data) {
+loglik.dag <- function(dag,CPD.prior.value,data, arc.priors) {
   ## dag: a dag structure
   ## CPD.prior.value: a constant pseudocount eta for all CPDs
   ## data: rows are samples, columns are variables
@@ -72,9 +72,10 @@ loglik.dag <- function(dag,CPD.prior.value,data) {
     parents <- dag$parents[[i]]
     ## create the DPD
     DPD <- table(data[, c(parents, i)])
-    dag$loglik.families[i] <- loglik.family(DPD,CPD.prior.value)
+    dag$loglik.families[i] <- loglik.family(DPD, CPD.prior.value)
   }
-  dag$loglik <- sum(dag$loglik.families)
+  prior <- prior.prob(dag, arc.priors)
+  dag$loglik <- sum(dag$loglik.families) + prior
   dag$changed <- NULL
   return(dag)
 }
@@ -223,7 +224,7 @@ random.dag <- function(n,operations=all.operations,density=2) {
 
 
 search.dag <- function(data,n.starts=50,n.iterations=10,
-                       prior.value = 0.1,
+                       prior.value = 0.1, arc.priors,
                        operations=all.operations) {
   ## data: matrix for variables in columns and samples in rows
   ## n.starts: number of random restarts
@@ -236,7 +237,7 @@ search.dag <- function(data,n.starts=50,n.iterations=10,
   logliks <- NULL
   for (j in 1:n.starts) { # global search
     start.dag <- random.dag(ncol(data),all.operations)
-    start.dag <- loglik.dag(start.dag,prior.value,data)
+    start.dag <- loglik.dag(start.dag,prior.value,data, arc.priors)
     best.dag <- start.dag
     for (rounds in 1:n.iterations) {  # local search
       logliks <- c(logliks,best.dag$loglik)
@@ -244,7 +245,7 @@ search.dag <- function(data,n.starts=50,n.iterations=10,
       op <- sample(length(operations),1)
       ## apply it to the best.dag so far
       new.dag <- do.call(operations[op],list(best.dag))
-      new.dag <- loglik.dag(new.dag,prior.value,data)
+      new.dag <- loglik.dag(new.dag,prior.value,data, arc.priors)
       ## if the new loglikelihood is better than best.dag
       ## keep the new dag as best.dag
       if (new.dag$loglik > best.dag$loglik) {
@@ -343,14 +344,6 @@ revert.arc.mcmc <- function(dag) {
     dag
 }
 
-elog <- function(x) {
-    if (x == 1) {
-
-    }
-
-}
-
-
 all.mcmc.operations <- c("add.arc.mcmc", "revert.arc.mcmc", "remove.arc.mcmc")
 
 mcmc.dag <- function(data,n.iterations=2000,
@@ -396,7 +389,7 @@ mcmc.dag1 <- function(data,n.iterations=2000,
   dags <- list()
   accepts <- NULL
   old.dag <- random.dag(ncol(data),all.operations)
-  old.dag <- loglik.dag(old.dag,prior.value,data)
+  old.dag <- loglik.dag(old.dag,prior.value,data, arc.priors)
   for (rounds in 1:n.iterations) {
       accept <- 0
       dags <- c(dags,list(old.dag))
@@ -404,7 +397,7 @@ mcmc.dag1 <- function(data,n.iterations=2000,
       dag <- do.call(operations[op],list(old.dag))
       if (!is.null(dag$changed)) {
           ## get the loglikelihood of the dag
-          dag <- loglik.dag(dag,prior.value, data)
+          dag <- loglik.dag(dag,prior.value, data, arc.priors)
           accept <- min(1, exp(dag$loglik-old.dag$loglik+log(dag$ratio)))
           u <- runif(1)
           if (u < accept) {
