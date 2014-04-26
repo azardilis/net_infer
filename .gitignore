@@ -1,6 +1,6 @@
 *.pdf
-*.aux	
-*.bbl	
+*.aux
+*.bbl
 *.blg
 *.log
 *.out
