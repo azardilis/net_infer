@@ -1,0 +1,107 @@
+
+\documentclass[11pt]{article}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{fullpage}
+\usepackage{listings}
+\usepackage{subcaption}
+\usepackage{hyperref}
+
+\author{Argyris Zardilis\\ \texttt{az325@cam.ac.uk}}
+\title{Network Biology Assignment 2}
+
+\begin{document}
+\maketitle
+<<env, echo=FALSE, results='hide', message=FALSE, cache=FALSE>>=
+set.seed(1)
+@
+
+\section{Question 1}
+
+\section{Question 2}
+Using the small network given in section 2 of the assignment(Figure
+\ref{fig:dag}) I investigated the effects of the number of datapoints
+in the inference with the hill-climbing method. Because the
+hill-climbing procedure is stochastic as it starts its walk in graph
+space with a random network, the process was repeated 100 times for
+each dataset with different numbers of datapoints with the arc priors
+given in section 7 of the assignment. The results can be
+seen in Figure \ref{fig:nPointsEffect}. Provided with a dataset with
+as few as 150 points the hill-climbing search algorithm can find the
+correct network 60\% of the time.
+
+\begin{figure}[!ht]
+  \centering
+\includegraphics[scale=0.5]{images/dag.png}
+\caption{The small example network used throughout the assignment, as
+  given in section 2 of the assignment handout.}
+\label{fig:dag}
+\end{figure}
+
+
+\begin{figure}[!ht]
+  \centering
+<<q2, echo=FALSE, fig.width=5, fig.height=5>>=
+n.datapoints <- as.vector(as.matrix(read.table("data/n_datapoints.dat")))
+succ <- as.vector(as.matrix(read.table("data/with_prior_success_perc_hillclimb.dat")))
+plot(n.datapoints, succ, type='l', xlab="Number of datapoints",
+     ylab="Correct network guesses(%)")
+@
+\caption{Graph of percentage of correct guesses against the number of
+  datapoints in the dataset provided to the hill-climbing search algorithm}
+\label{fig:nPointsEffect}
+\end{figure}
+
+\section{Question 3}
+
+
+\section{Question 4}
+\texttt{CPD.prior.value} which is the $\eta_{ijk}$ parameter from
+Equation 1 in the assignment handout is the parameter on the beta
+prior imposed on the probability of success parameter of the binomial
+distribution for node $i$ and specific configuration $j$ of its
+parents. It acts as a pseudocount for level $k$ of the levels that the
+node can take, so for example when calculating the likelihood in the
+traditional way the value for the count would be $n_{ijk}+\eta{ijk}$
+instead of $n_{ijk}$ which is the true count from the data. In this case we
+marginalise over the parameters of the model and our likelihood
+calculation relies only on the hyper-parameters $\eta_{ijk}$. The
+prior parameters were all set, for all families and parent
+configurations, to a constant value $\alpha$. In this section we
+investigate the effect of this value $\alpha$ on inferred networks
+with the hill-climbing search algorithm and in particular to the
+average number of parents of the inferred network.
+
+For this part of the assignment only I augmented the given network, as
+seen in Figure \ref{fig:dag}, and added a couple of extra nodes(Figure
+\ref{fig:dag1}) so the
+results would be clearer since the network with only 4 nodes could only
+have 0 to 3 parents per node.
+
+\begin{figure}[!ht]
+  \centering
+\includegraphics[scale=0.5]{images/dag1.png}
+\caption{Network with CPDs used for investigating the effects of the
+  hyperparameters of the model on the inferred networks.}
+\label{fig:dag1}
+\end{figure}
+
+
+
+\begin{figure}[!ht]
+  \centering
+<<q4, echo=FALSE, fig.width=5, fig.height=5>>=
+CDP.prior.vals <- as.vector(as.matrix(read.table("data/prior_vals.dat")))
+res <- read.table("data/prior_val_search.dat")
+avg.pars <- colMeans(res)
+plot(CDP.prior.vals, avg.pars, pch=16, xlab=expression(alpha),
+     ylab="Average number of parents")
+@
+\caption{Effect of the hyperparameter value on the density of the
+  inferred network.}
+\label{fig:hyperParEffect}
+\end{figure}
+\section{Question 5}
+
+\end{document}
