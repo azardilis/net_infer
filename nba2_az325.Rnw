@@ -1,4 +1,3 @@
-
 \documentclass[11pt]{article}
 \usepackage{amssymb}
 \usepackage{amsmath}
@@ -27,9 +26,10 @@ hill-climbing procedure is stochastic as it starts its walk in graph
 space with a random network, the process was repeated 100 times for
 each dataset with different numbers of datapoints with the arc priors
 given in section 7 of the assignment. The results can be
-seen in Figure \ref{fig:nPointsEffect}. Provided with a dataset with
-as few as 150 points the hill-climbing search algorithm can find the
-correct network 60\% of the time.
+seen in Figure \ref{fig:nPointsEffect}. Provided with as few as 100
+points the hill-climbing search algorithm infers the correct network
+in more than 50\% of the runs while the percentage goes up to 90\% of
+the cases for 250 points and then stays at those levels.
 
 \begin{figure}[!ht]
   \centering
@@ -46,7 +46,7 @@ correct network 60\% of the time.
 n.datapoints <- as.vector(as.matrix(read.table("data/n_datapoints.dat")))
 succ <- as.vector(as.matrix(read.table("data/with_prior_success_perc_hillclimb.dat")))
 plot(n.datapoints, succ, type='l', xlab="Number of datapoints",
-     ylab="Correct network guesses(%)")
+     ylab="Correct network guesses(%)", lwd=2)
 @
 \caption{Graph of percentage of correct guesses against the number of
   datapoints in the dataset provided to the hill-climbing search algorithm}
@@ -54,7 +54,33 @@ plot(n.datapoints, succ, type='l', xlab="Number of datapoints",
 \end{figure}
 
 \section{Question 3}
+CPDs that make the inference harder are ones that the effect of the
+parent edge on the probabilities of the child node are not
+strong. Consider for example the 2-node network in Figure
+\ref{fig:dag2}. The probability of the child node being 1 when the
+parent is 1 is not very different from that when the parent is 0. That
+means that the effect of the parent is not very strong and therefore
+it is difficult to distinguish between that and the independent
+case. Data were generated from the network in Figure
+\ref{fig:dag2} with 300 datapoints. The likelihood of the network with
+an arc between the two nodes is -394.6795 and of a network with 2
+independent nodes is -392.3486. If the CPD of node 2 had been $[0.5,
+0.5]$ the likelihood would have always been higher in the independent
+network. In this case I repeated the data generation and likelihood
+calculation for the two networks 100 times and in 76 cases the
+likelihood of the independent network was higher than that of the
+network with the arc. Since the hill-climbing search algorithm is
+designed to find the network with the maximum likelihood that means
+that in some cases it would have inferred the network with an arc and
+sometimes the one without the arc.
 
+
+\begin{figure}[!ht]
+\centering
+\includegraphics[scale=0.5]{images/dag2.png}
+\caption{Network with 2 nodes.}
+\label{fig:dag2}
+\end{figure}
 
 \section{Question 4}
 \texttt{CPD.prior.value} which is the $\eta_{ijk}$ parameter from
@@ -77,7 +103,11 @@ For this part of the assignment only I augmented the given network, as
 seen in Figure \ref{fig:dag}, and added a couple of extra nodes(Figure
 \ref{fig:dag1}) so the
 results would be clearer since the network with only 4 nodes could only
-have 0 to 3 parents per node.
+have 0 to 3 parents per node. The results, which can be seen in Figure
+\ref{fig:dag1}, are indeed surprising since increasing the value of
+the hyperparameter $\alpha$ increases the average number of parents in
+the network until it reaches the thoeretical maximum of 2.5 parents
+per node for values of $\alpha$ after 6.8.
 
 \begin{figure}[!ht]
   \centering
@@ -95,13 +125,51 @@ have 0 to 3 parents per node.
 CDP.prior.vals <- as.vector(as.matrix(read.table("data/prior_vals.dat")))
 res <- read.table("data/prior_val_search.dat")
 avg.pars <- colMeans(res)
-plot(CDP.prior.vals, avg.pars, pch=16, xlab=expression(alpha),
-     ylab="Average number of parents")
+plot(CDP.prior.vals, avg.pars, type='l', xlab=expression(alpha),
+     ylab="Average number of parents", lwd=2)
 @
 \caption{Effect of the hyperparameter value on the density of the
   inferred network.}
 \label{fig:hyperParEffect}
 \end{figure}
+
 \section{Question 5}
+Likelihood equivalence is preserved between $A \rightarrow B$ and $A
+\leftarrow B$, and between $A \leftarrow B \leftarrow C$ and $A
+\rightarrow B \leftarrow C$.
+
+
+\section{Question 6}
+In section 7 of the assignment handout it was suggested adding a
+strong prior on one of the edges of the network. Here the effect of
+adding that prior on the performance of the hill-climbing search
+algorithm is investigated. The same procedure as in Question 2 was
+followed. The inference process was repeated 100 times for different
+data points with and without the strong prior on a correct edge of the
+network. The network given in section 2 of the assignment handout was
+used(Figure \ref{fig:dag}). The results can be seen in Figure
+\ref{fig:priorComp}. The inference process with the strong prior is
+able to find the correct network on some occasions even for as few as
+10 points in the dataset. In general the inference with the strong
+prior performs better for all number of datapoints in the dataset but
+its advantage decreases for large number of points.
+\begin{figure}[!ht]
+  \centering
+<<q6, echo=FALSE,fig.width=5, fig.height=5>>=
+succ1 <- as.vector(as.matrix(read.table("data/without_prior_success_perc_hillclimb.dat")))
+out <- as.matrix(cbind(n.datapoints, succ, succ1))
+colnames(out) <- c("n.datapoints", "With Prior", "Without Prior")
+
+plot(out[, 1], out[, 2], type='l', xlab="Number of datapoints",
+     ylab="Correct network guesses(%)", lwd=2, lty = "solid", ylim=c(0, 1.0))
+par(new=T)
+plot(out[, 1], out[, 3], type='l', axes=F,xlab="", ylab="",
+     lwd=2, lty = "solid", ylim=c(0, 1.0), col="red")
+
+legend("bottomright", colnames(out)[2:ncol(out)], col = 1:(ncol(out)-1), lty=rep("solid", 2))
+@
+\caption{Test}
+\label{fig:priorComp}
+\end{figure}
 
 \end{document}
