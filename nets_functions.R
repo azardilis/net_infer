@@ -61,10 +61,11 @@ get.CPD.probs <- function(CPD,index.vector) {
 }
 
 
-loglik.dag <- function(dag,CPD.prior.value,data, arc.priors) {
+loglik.dag <- function(dag,CPD.prior.value,data, arc.priors=NULL) {
   ## dag: a dag structure
   ## CPD.prior.value: a constant pseudocount eta for all CPDs
   ## data: rows are samples, columns are variables
+  prior <- 0
   if (is.null(dag$changed))
       return(dag)
   for (i in dag$changed) {
@@ -74,7 +75,7 @@ loglik.dag <- function(dag,CPD.prior.value,data, arc.priors) {
     DPD <- table(data[, c(parents, i)])
     dag$loglik.families[i] <- loglik.family(DPD, CPD.prior.value)
   }
-  prior <- prior.prob(dag, arc.priors)
+  if (!is.null(arc.priors)) {prior <- prior.prob(dag, arc.priors) }
   dag$loglik <- sum(dag$loglik.families) + prior
   dag$changed <- NULL
   return(dag)
@@ -345,7 +346,7 @@ revert.arc.mcmc <- function(dag) {
 all.mcmc.operations <- c("add.arc.mcmc", "revert.arc.mcmc", "remove.arc.mcmc")
 
 mcmc.dag <- function(data,n.iterations=2000,
-                       prior.value = 0.01,arc.priors=NULL,
+                       prior.value = 0.01, arc.priors=NULL,
                        operations=all.mcmc.operations) {
   ## n.iterations: number of MCMC steps
   ## returns a list of sample dags from the MH simulation, as well
@@ -362,7 +363,8 @@ mcmc.dag <- function(data,n.iterations=2000,
       if (!is.null(dag$changed)) {
           ## get the loglikelihood of the dag
           dag <- loglik.dag(dag,prior.value, data, arc.priors)
-          accept <- min(1, exp(dag$loglik-old.dag$loglik+log(dag$ratio)))
+          #accept <- min(1, exp(dag$loglik-old.dag$loglik+log(dag$ratio)))
+          accept <- min(1, exp(dag$loglik-old.dag$loglik)*dag$ratio)
           u <- runif(1)
           if (u < accept) {
               old.dag <- dag
@@ -414,5 +416,10 @@ prior.prob <- function(dag, arc.priors) {
 }
 
 
+prob.node <- function(n, eta) {
+    norm <- lgamma(sum(eta)) - lgamma(sum(n+eta))
+    p <- sum(mapply(function(x, y) { lgamma(x+y) - lgamma(y)}, n, eta))
 
+    return(p + norm)
+}
 
